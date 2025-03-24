@@ -1,6 +1,6 @@
 # 📦 Subelo.js
 
-Uploader is a TypeScript library that allows you to upload files to a platform. It provides a simple and easy-to-use API for uploading files with progress tracking. Uploader is designed to work seamlessly with other services.
+Subelo is a TypeScript library that allows you to upload files to a platform. It provides a simple and easy-to-use API for uploading files with progress tracking.
 
 ## 🚀 Installation
 
