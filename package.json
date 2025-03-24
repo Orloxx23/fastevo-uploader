@@ -10,7 +10,6 @@
   "scripts": {
     "build": "rollup -c",
     "dev": "rollup -c -w",
-    "test": "jest",
     "lint": "eslint src",
     "prepublishOnly": "npm run build"
   },
@@ -23,10 +22,16 @@
     "@rollup/plugin-alias": "^5.1.1",
     "@rollup/plugin-commonjs": "^23.0.2",
     "@rollup/plugin-node-resolve": "^15.0.1",
+    "@typescript-eslint/eslint-plugin": "^8.28.0",
+    "@typescript-eslint/parser": "^8.28.0",
+    "eslint": "^9.23.0",
+    "eslint-config-prettier": "^10.1.1",
+    "eslint-plugin-prettier": "^5.2.4",
+    "prettier": "^3.5.3",
     "rollup": "^3.20.0",
+    "rollup-plugin-copy": "^3.5.0",
     "rollup-plugin-typescript2": "^0.34.1",
-    "typescript": "^5.0.4",
-    "rollup-plugin-copy": "^3.5.0"
+    "typescript": "^5.0.4"
   },
   "exports": {
     ".": {

@@ -1,4 +1,4 @@
-import { UploadOptions } from "@/modules/upload/types";
+import { UploadOptions } from "@/modules/upload/UploadRequest";
 
 export interface Config {
   apiKey: string;

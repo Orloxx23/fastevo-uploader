@@ -21,13 +21,18 @@ export default {
       file: "dist/index.cjs.js",
       format: "cjs",
       sourcemap: true,
+      exports: "named",
     },
   ],
+  external: ["@ffmpeg/ffmpeg", "@ffmpeg/util"], // Mark external dependencies to exclude from the bundle
   plugins: [
     alias({
       entries: [{ find: "@", replacement: path.resolve(__dirname, "src") }],
     }),
-    resolve(),
+    resolve({
+      browser: true, // Resolve modules for browsers
+      preferBuiltins: false,
+    }),
     commonjs(),
     typescript({
       useTsconfigDeclarationDir: true,
