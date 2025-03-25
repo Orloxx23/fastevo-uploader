@@ -1,61 +1,59 @@
-import ApiClient from "./core/api/ApiClient";
-import ConfigManager from "./core/config/ConfigManager";
-import { Config } from "./core/config/types";
-import { Environment } from "./core/enviorment/enviorment";
+// subelo.ts
+
 import Logger from "./core/logger/Logger";
-import { ThumbnailGenerator } from "./modules/thumbnail";
-import { UploadManager } from "./modules/upload";
+import ThumbnailGenerator from "./modules/thumbnail/ThumbnailGenerator";
+import UploadManager from "./modules/upload/UploadManager";
 import { UploadRequest, UploadResult } from "./modules/upload/types";
 
 /**
- * Main class that orchestrates the different modules of Subelo.js.
+ * Clase principal que orquesta los diferentes módulos de Subelo.js.
+ * Implementada como un Singleton para facilitar su uso.
  */
 class Subelo {
   private uploadManager: UploadManager;
   private thumbnailGenerator: ThumbnailGenerator;
   private logger: Logger;
 
-  constructor(config: Config) {
-    // Check the environment before proceeding
-    Environment.requireBrowserEnvironment();
-
-    ConfigManager.setConfig(config);
-    const apiClient = new ApiClient(ConfigManager.getConfig());
-
+  constructor(debug: boolean = false) {
     this.logger = new Logger({
-      level: config.debug ? "debug" : "info",
-      debug: config.debug,
+      level: debug ? "debug" : "info",
+      debug: debug,
     });
     this.thumbnailGenerator = new ThumbnailGenerator(this.logger);
     this.uploadManager = new UploadManager(
-      apiClient,
       this.logger,
       this.thumbnailGenerator,
     );
 
-    // Preload FFmpeg if necessary
+    // Precargar FFmpeg si es necesario
     this.thumbnailGenerator
       .preloadFFmpeg()
       .then((preloaded) => {
         if (preloaded) {
-          this.logger.info("FFmpeg preloaded successfully.");
+          this.logger.info("FFmpeg precargado exitosamente.");
         } else {
-          this.logger.warn("FFmpeg preloading failed.");
+          this.logger.warn("Falló la precarga de FFmpeg.");
         }
       })
       .catch((err) => {
-        this.logger.error("Error during FFmpeg preloading.", { error: err });
+        this.logger.error("Error durante la precarga de FFmpeg.", {
+          error: err,
+        });
       });
   }
 
   /**
-   * Uploads content using the established configuration.
-   * @param request - Upload request object.
-   * @returns Promise that resolves with the generated thumbnails.
+   * Sube contenido utilizando la configuración establecida.
+   * @param request - Objeto de solicitud de subida.
+   * @returns Promesa que se resuelve con los thumbnails generados.
    */
   async uploadContent(request: UploadRequest): Promise<UploadResult> {
     return this.uploadManager.uploadContent(request);
   }
 }
 
-export default Subelo;
+// Crear una única instancia de Subelo que será exportada por defecto
+const subeloInstance = new Subelo();
+
+// Exportar la instancia como exportación predeterminada
+export default subeloInstance;

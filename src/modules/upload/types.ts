@@ -1,5 +1,3 @@
-import { UploadOptions as CoreUploadOptions } from "../../core/config/types";
-
 export interface SignedUploadObject {
   url: string;
   postParams: {
@@ -15,11 +13,6 @@ export interface SignedUploadObject {
   };
 }
 
-export interface UploadResponse {
-  contentId: string;
-  signedUploadObject: SignedUploadObject;
-}
-
 export interface UploadProgress {
   percentage: number;
   uploadedBytes: number;
@@ -30,7 +23,7 @@ export interface UploadProgress {
 
 export interface UploadRequest {
   file: File;
-  options: CoreUploadOptions;
+  signedUploadObject: SignedUploadObject;
   onProgress?: (progress: UploadProgress) => void;
 }
 

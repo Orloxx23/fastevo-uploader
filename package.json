@@ -11,7 +11,8 @@
     "build": "rollup -c",
     "dev": "rollup -c -w",
     "lint": "eslint src",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "docs": "typedoc"
   },
   "files": [
     "dist"
@@ -31,6 +32,7 @@
     "rollup": "^3.20.0",
     "rollup-plugin-copy": "^3.5.0",
     "rollup-plugin-typescript2": "^0.34.1",
+    "typedoc": "^0.28.1",
     "typescript": "^5.0.4"
   },
   "exports": {

@@ -1,5 +1,6 @@
+// modules/upload/UploadManager.ts
+
 import { UploadRequest, UploadResult, UploadProgress } from "./types";
-import ApiClient from "../../core/api/ApiClient";
 import {
   CustomError,
   UploadError,
@@ -7,62 +8,49 @@ import {
   TimeoutError,
 } from "../../core/errors";
 import Logger from "../../core/logger/Logger";
-import { ThumbnailGenerator } from "../thumbnail";
+import ThumbnailGenerator from "../thumbnail/ThumbnailGenerator";
 
 class UploadManager {
-  private apiClient: ApiClient;
   private logger: Logger;
   private thumbnailGenerator: ThumbnailGenerator;
 
-  constructor(
-    apiClient: ApiClient,
-    logger: Logger,
-    thumbnailGenerator: ThumbnailGenerator,
-  ) {
-    this.apiClient = apiClient;
+  constructor(logger: Logger, thumbnailGenerator: ThumbnailGenerator) {
     this.logger = logger;
     this.thumbnailGenerator = thumbnailGenerator;
   }
 
   /**
-   * Uploads content using an upload request.
-   * @param request - Upload request object.
-   * @returns Promise that resolves with the generated thumbnails.
+   * Sube contenido usando un UploadRequest.
+   * @param request - Objeto de solicitud de subida.
+   * @returns Promesa que resuelve con los thumbnails generados.
    */
   async uploadContent(request: UploadRequest): Promise<UploadResult> {
     try {
-      // Validate the file type before proceeding
+      // Validar el tipo de archivo antes de proceder
       if (
         !request.file.type.startsWith("video/") &&
         !request.file.type.startsWith("image/") &&
         !request.file.type.startsWith("audio/")
       ) {
-        this.logger.warn("Unsupported file type.", {
+        this.logger.warn("Tipo de archivo no soportado.", {
           fileType: request.file.type,
         });
         throw new UploadError(
-          "Unsupported file type. Only videos, images, and audio files are allowed.",
+          "Tipo de archivo no soportado. Solo se permiten videos, imágenes y archivos de audio.",
         );
       }
 
-      this.logger.info("Preparing to upload content.", {
+      this.logger.info("Preparando para subir contenido.", {
         fileName: request.file.name,
       });
 
-      // 1. Get the signed upload object
-      const uploadResponse = await this.apiClient.uploadContent(
-        request.options,
-      );
-      this.logger.info("Pre-signed URL obtained.");
+      const { url: presignedUrl, postParams } = request.signedUploadObject;
 
-      const { url: presignedUrl, postParams } =
-        uploadResponse.signedUploadObject;
-
-      // 2. Build FormData for the upload
+      // 1. Construir FormData para la subida
       const formData = this.buildFormData(postParams, request.file);
       this.logger.debug("FormData construida.", { formData });
 
-      // 3. Upload the file to S3 using XMLHttpRequest with retries
+      // 2. Subir el archivo a S3 usando XMLHttpRequest con reintentos
       let attempts = 0;
       const maxRetries = 3;
       const delay = (attempt: number) =>
@@ -77,12 +65,14 @@ class UploadManager {
             formData,
             request.onProgress,
           );
-          this.logger.info("Upload to S3 successful.");
+          this.logger.info("Subida a S3 exitosa.");
           break;
         } catch (error) {
           attempts++;
           if (attempts < maxRetries) {
-            this.logger.warn(`Retrying upload attempt ${attempts}`, { error });
+            this.logger.warn(`Reintentando subida intento ${attempts}`, {
+              error,
+            });
             await delay(attempts);
           } else {
             throw error;
@@ -93,7 +83,7 @@ class UploadManager {
       const finalUrl = presignedUrl.split("?")[0];
       let thumbnails: string[] = [];
 
-      // 4. Generate thumbnails if it's a video or image
+      // 3. Generar thumbnails si es un video o imagen
       if (request.file.type.startsWith("video/")) {
         thumbnails = await this.generateVideoThumbnails(request.file);
       } else if (request.file.type.startsWith("image/")) {
@@ -102,22 +92,22 @@ class UploadManager {
 
       return { thumbnails };
     } catch (error: any) {
-      this.logger.error("Error during content upload.", { error });
+      this.logger.error("Error durante la subida de contenido.", { error });
       if (error instanceof CustomError) {
         throw error;
       }
-      // Wrap generic errors
-      throw new UploadError("Failed to upload content.", {
+      // Envolver errores genéricos
+      throw new UploadError("Error al subir contenido.", {
         originalError: error,
       });
     }
   }
 
   /**
-   * Builds the FormData object for the upload.
-   * @param postParams - Signed request parameters.
-   * @param file - File to upload.
-   * @returns FormData object.
+   * Construye el objeto FormData para la subida.
+   * @param postParams - Parámetros de la solicitud firmada.
+   * @param file - Archivo a subir.
+   * @returns Objeto FormData.
    */
   private buildFormData(
     postParams: { [key: string]: string },
@@ -132,11 +122,11 @@ class UploadManager {
   }
 
   /**
-   * Uploads the file to the pre-signed URL.
-   * @param url - Pre-signed URL for the upload.
-   * @param formData - FormData containing the parameters and file.
-   * @param onProgress - Callback for upload progress.
-   * @returns Promise that resolves when the upload completes.
+   * Sube el archivo a la URL prefirmada.
+   * @param url - URL prefirmada para la subida.
+   * @param formData - FormData que contiene los parámetros y el archivo.
+   * @param onProgress - Callback para el progreso de la subida.
+   * @returns Promesa que se resuelve cuando la subida termina.
    */
   private uploadToPresignedUrl(
     url: string,
@@ -147,7 +137,7 @@ class UploadManager {
       const xhr = new XMLHttpRequest();
       xhr.open("POST", url, true);
       xhr.responseType = "text";
-      xhr.timeout = 30000; // 30-second timeout
+      xhr.timeout = 30000; // Tiempo de espera de 30 segundos
 
       let startTime = Date.now();
 
@@ -157,8 +147,8 @@ class UploadManager {
           const uploadedBytes = event.loaded;
           const totalBytes = event.total;
 
-          const elapsedTime = (Date.now() - startTime) / 1000; // Seconds
-          const speedBps = uploadedBytes / elapsedTime; // Bytes per second
+          const elapsedTime = (Date.now() - startTime) / 1000; // Segundos
+          const speedBps = uploadedBytes / elapsedTime; // Bytes por segundo
 
           const timeRemaining =
             speedBps > 0 ? (totalBytes - uploadedBytes) / speedBps : 0;
@@ -177,11 +167,11 @@ class UploadManager {
         if (xhr.status >= 200 && xhr.status < 300) {
           resolve();
         } else {
-          this.logger.error(`Upload failed with status ${xhr.status}`, {
+          this.logger.error(`La subida falló con el estado ${xhr.status}`, {
             status: xhr.status,
           });
           reject(
-            new UploadError(`Upload failed with status ${xhr.status}`, {
+            new UploadError(`La subida falló con el estado ${xhr.status}`, {
               status: xhr.status,
             }),
           );
@@ -189,13 +179,13 @@ class UploadManager {
       };
 
       xhr.onerror = () => {
-        this.logger.error("Network error occurred during upload");
-        reject(new NetworkError("Network error occurred during upload"));
+        this.logger.error("Ocurrió un error de red durante la subida");
+        reject(new NetworkError("Ocurrió un error de red durante la subida"));
       };
 
       xhr.ontimeout = () => {
-        this.logger.error("Upload timed out");
-        reject(new TimeoutError("Upload timed out"));
+        this.logger.error("La subida excedió el tiempo de espera");
+        reject(new TimeoutError("La subida excedió el tiempo de espera"));
       };
 
       xhr.send(formData);
@@ -203,13 +193,13 @@ class UploadManager {
   }
 
   /**
-   * Generates thumbnails for video files.
-   * @param file - Video file.
-   * @returns Promise that resolves with an array of thumbnail URLs.
+   * Genera thumbnails para archivos de video.
+   * @param file - Archivo de video.
+   * @returns Promesa que se resuelve con un array de URLs de thumbnails.
    */
   private async generateVideoThumbnails(file: File): Promise<string[]> {
     try {
-      this.logger.info("Generating video thumbnails.", {
+      this.logger.info("Generando thumbnails de video.", {
         fileName: file.name,
       });
       const thumbnails = await this.thumbnailGenerator.generateThumbnails(
@@ -221,10 +211,10 @@ class UploadManager {
           thumbnailInterval: 5,
         },
       );
-      this.logger.info("Thumbnails generated successfully.", { thumbnails });
+      this.logger.info("Thumbnails generados exitosamente.", { thumbnails });
       return thumbnails.map((thumb) => thumb.blobUrl);
     } catch (error) {
-      this.logger.warn("Error generating video thumbnails.", { error });
+      this.logger.warn("Error al generar thumbnails de video.", { error });
       return [];
     }
   }
