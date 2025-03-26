@@ -40,7 +40,7 @@ class UploadManager {
     this.logger = logger;
     this.thumbnailGenerator = thumbnailGenerator;
     this.config = {
-      minSpeedBps: 0.8 * 1024 * 1024, // 0.8 MB/s by default
+      minSpeedBps: 1 * 1024 * 1024, // 1 MB/s by default
       bufferPercentage: 0.2, // 20% buffer
       maxTimeout: 2 * 60 * 60 * 1000, // 2 hours in ms
       maxRetries: 3, // Default maximum of 3 retries
@@ -82,7 +82,7 @@ class UploadManager {
 
       // Build FormData for the upload
       const formData = this.buildFormData(postParams, request.file);
-      this.logger.debug("FormData constructed.", { formData });
+      this.logger.info("FormData constructed.", { formData });
 
       // Calculate dynamic timeout based on file size and minimum speed
       const dynamicTimeout = this.calculateTimeout(request.file.size);
