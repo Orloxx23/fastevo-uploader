@@ -1,3 +1,5 @@
+// UploadManager.ts
+
 import { UploadRequest, UploadResult, UploadProgress } from "./types";
 import {
   CustomError,
@@ -8,18 +10,48 @@ import {
 import Logger from "../../core/logger/Logger";
 import ThumbnailGenerator from "../thumbnail/ThumbnailGenerator";
 
+/**
+ * Configuration interface for upload settings.
+ */
+interface UploadConfig {
+  minSpeedBps: number; // Minimum upload speed in bytes per second
+  bufferPercentage: number; // Additional buffer time as a percentage
+  maxTimeout: number; // Maximum allowed timeout in milliseconds
+  maxRetries: number; // Maximum number of retry attempts
+  retryDelay: (attempt: number) => number; // Function to calculate delay between retries
+}
+
 class UploadManager {
   private logger: Logger;
   private thumbnailGenerator: ThumbnailGenerator;
+  private config: UploadConfig;
 
-  constructor(logger: Logger, thumbnailGenerator: ThumbnailGenerator) {
+  /**
+   * Initializes the UploadManager with necessary dependencies and configurations.
+   * @param logger - Logger instance for logging events and errors.
+   * @param thumbnailGenerator - Instance responsible for generating thumbnails.
+   * @param config - Optional configuration settings for uploads.
+   */
+  constructor(
+    logger: Logger,
+    thumbnailGenerator: ThumbnailGenerator,
+    config?: Partial<UploadConfig>,
+  ) {
     this.logger = logger;
     this.thumbnailGenerator = thumbnailGenerator;
+    this.config = {
+      minSpeedBps: 0.8 * 1024 * 1024, // 0.8 MB/s by default
+      bufferPercentage: 0.2, // 20% buffer
+      maxTimeout: 2 * 60 * 60 * 1000, // 2 hours in ms
+      maxRetries: 3, // Default maximum of 3 retries
+      retryDelay: (attempt) => Math.pow(2, attempt) * 1000, // Exponential backoff: 1s, 2s, 4s
+      ...config,
+    };
   }
 
   /**
    * Uploads content using an UploadRequest.
-   * @param request - Upload request object.
+   * @param request - Upload request object containing file and upload details.
    * @returns Promise that resolves with the generated thumbnails.
    */
   async uploadContent(request: UploadRequest): Promise<UploadResult> {
@@ -38,22 +70,32 @@ class UploadManager {
         );
       }
 
+      this.logger.info("Content type: " + request.file.type, {
+        contentType: request.file.type,
+      });
+
       this.logger.info("Preparing to upload content.", {
         fileName: request.file.name,
       });
 
       const { url: presignedUrl, postParams } = request.signedUploadObject;
 
-      // 1. Build FormData for the upload
+      // Build FormData for the upload
       const formData = this.buildFormData(postParams, request.file);
       this.logger.debug("FormData constructed.", { formData });
 
-      // 2. Upload the file to S3 using XMLHttpRequest with retries
+      // Calculate dynamic timeout based on file size and minimum speed
+      const dynamicTimeout = this.calculateTimeout(request.file.size);
+      this.logger.info(
+        `Calculated dynamic timeout: ${dynamicTimeout / 1000} seconds`,
+      );
+
+      // Upload the file to S3 using XMLHttpRequest with retries
       let attempts = 0;
-      const maxRetries = 3;
+      const maxRetries = this.config.maxRetries;
       const delay = (attempt: number) =>
         new Promise((resolve) =>
-          setTimeout(resolve, Math.pow(2, attempt) * 1000),
+          setTimeout(resolve, this.config.retryDelay(attempt)),
         );
 
       while (attempts < maxRetries) {
@@ -62,6 +104,7 @@ class UploadManager {
             presignedUrl,
             formData,
             request.onProgress,
+            dynamicTimeout,
           );
           this.logger.info("Upload to S3 successful.");
           break;
@@ -78,10 +121,9 @@ class UploadManager {
         }
       }
 
-      const finalUrl = presignedUrl.split("?")[0];
+      // Generate thumbnails if the upload was successful
       let thumbnails: string[] = [];
 
-      // 3. Generate thumbnails if it's a video or image
       if (request.file.type.startsWith("video/")) {
         thumbnails = await this.generateVideoThumbnails(request.file);
       } else if (request.file.type.startsWith("image/")) {
@@ -103,9 +145,9 @@ class UploadManager {
 
   /**
    * Builds the FormData object for the upload.
-   * @param postParams - Signed request parameters.
-   * @param file - File to upload.
-   * @returns FormData object.
+   * @param postParams - Signed request parameters required by S3.
+   * @param file - File to be uploaded.
+   * @returns FormData object containing all necessary fields.
    */
   private buildFormData(
     postParams: { [key: string]: string },
@@ -120,22 +162,46 @@ class UploadManager {
   }
 
   /**
-   * Uploads the file to the pre-signed URL.
+   * Calculates the dynamic timeout based on file size and minimum upload speed.
+   * @param fileSize - Size of the file in bytes.
+   * @returns Estimated timeout in milliseconds.
+   */
+  private calculateTimeout(fileSize: number): number {
+    const estimatedTimeSeconds = fileSize / this.config.minSpeedBps;
+    const bufferTimeSeconds =
+      estimatedTimeSeconds * this.config.bufferPercentage;
+    let totalTimeoutSeconds = estimatedTimeSeconds + bufferTimeSeconds;
+
+    // Convert to milliseconds
+    let totalTimeoutMs = Math.ceil(totalTimeoutSeconds * 1000);
+
+    // Cap the timeout to the maximum allowed timeout
+    if (totalTimeoutMs > this.config.maxTimeout) {
+      totalTimeoutMs = this.config.maxTimeout;
+    }
+
+    return totalTimeoutMs;
+  }
+
+  /**
+   * Performs the upload using XMLHttpRequest with progress tracking and dynamic timeout.
    * @param url - Pre-signed URL for the upload.
-   * @param formData - FormData containing the parameters and file.
-   * @param onProgress - Callback for upload progress.
-   * @returns Promise that resolves when the upload completes.
+   * @param formData - FormData containing the upload parameters and file.
+   * @param onProgress - Callback to report upload progress.
+   * @param timeout - Dynamic timeout duration in milliseconds.
+   * @returns Promise that resolves when the upload is successful.
    */
   private uploadToPresignedUrl(
     url: string,
     formData: FormData,
     onProgress?: (progress: UploadProgress) => void,
+    timeout: number = 30000, // Default timeout of 30 seconds if not provided
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open("POST", url, true);
       xhr.responseType = "text";
-      xhr.timeout = 30000; // 30-second timeout
+      xhr.timeout = timeout; // Set dynamic timeout
 
       let startTime = Date.now();
 
@@ -167,10 +233,12 @@ class UploadManager {
         } else {
           this.logger.error(`Upload failed with status ${xhr.status}`, {
             status: xhr.status,
+            response: xhr.responseText,
           });
           reject(
             new UploadError(`Upload failed with status ${xhr.status}`, {
               status: xhr.status,
+              responseBody: xhr.responseText,
             }),
           );
         }
@@ -191,8 +259,52 @@ class UploadManager {
   }
 
   /**
+   * Implements a retry mechanism with exponential backoff.
+   * @param fn - Function that returns a Promise to be retried.
+   * @param retriesLeft - Number of retry attempts remaining.
+   * @param delayFn - Function to calculate delay before the next retry.
+   */
+  private async retryRequest(
+    fn: () => Promise<void>,
+    retriesLeft: number,
+    delayFn: (attempt: number) => number,
+  ): Promise<void> {
+    let attempt = 0;
+    while (attempt <= retriesLeft) {
+      try {
+        await fn();
+        return; // Exit if successful
+      } catch (error) {
+        if (attempt < retriesLeft) {
+          const delay = delayFn(attempt);
+          this.logger.warn(
+            `Retrying upload, attempt ${attempt + 1} in ${delay}ms`,
+            {
+              error,
+            },
+          );
+          await this.sleep(delay);
+          attempt++;
+        } else {
+          this.logger.error("Max retries reached. Upload failed.", { error });
+          throw error;
+        }
+      }
+    }
+  }
+
+  /**
+   * Pauses execution for a specified duration.
+   * @param ms - Duration in milliseconds to sleep.
+   * @returns Promise that resolves after the specified duration.
+   */
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
    * Generates thumbnails for video files.
-   * @param file - Video file.
+   * @param file - Video file for which thumbnails are to be generated.
    * @returns Promise that resolves with an array of thumbnail URLs.
    */
   private async generateVideoThumbnails(file: File): Promise<string[]> {
