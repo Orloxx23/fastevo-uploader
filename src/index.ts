@@ -6,5 +6,4 @@ export * from "@/utils/helpers";
 import subelo from "./subelo";
 export { subelo };
 
-// Exportar la instancia como exportación predeterminada
 export default subelo;
