@@ -15,19 +15,12 @@ To use subelojs for uploading files, first import the uploader and initialize it
 ```javascript
 import subelo from "subelojs";
 
-const uploader = subelo({
-  apiKey: "YOUR_API_KEY",
-});
-
 const uploadRequest = {
   file: File, // The file object to upload.
-  options: {
-    title: "My upload",
-    folderPath: "my-folder",
-    priority: 1,
-    watermarkProfile: null, // or your watermark profile.
-    tags: ["tag1", "tag2"],
-  },
+  signedUploadObject:{
+    url: string, // The URL to upload the file to.
+    postParams: { [key: string]: string }, // The params to include in the upload request.
+  }
   onProgress: (progress) => {
     /*
       progress: {
