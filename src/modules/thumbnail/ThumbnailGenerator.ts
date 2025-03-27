@@ -1,6 +1,13 @@
+// modules/thumbnail/ThumbnailGenerator.ts
+
 import { FFmpeg } from "@ffmpeg/ffmpeg";
-import { fetchFile, toBlobURL } from "@ffmpeg/util";
-import { CapturedFrame, Thumbnail, ThumbnailOptions } from "./types";
+import { fetchFile } from "@ffmpeg/util";
+import {
+  CapturedFrame,
+  Thumbnail,
+  ThumbnailOptions,
+  ThumbnailGenerationStatus,
+} from "./types";
 import Logger from "../../core/logger/Logger";
 import { CustomError } from "../../core/errors";
 
@@ -31,40 +38,72 @@ class ThumbnailGenerator {
   }
 
   /**
-   * Generates thumbnails for a video file.
-   * @param videoFile - Video file.
+   * Generates thumbnails for a video or image file.
+   * @param file - Video or image file.
    * @param options - Options for thumbnail generation.
    * @returns Promise that resolves with an array of thumbnails.
    */
   async generateThumbnails(
-    videoFile: File | Blob,
+    file: File | Blob,
     options: ThumbnailOptions = {},
   ): Promise<Thumbnail[]> {
-    const { method = "auto", ...thumbnailOptions } = options;
+    this.logger.info("Starting thumbnail generation.", { options });
+
+    const {
+      method = "auto",
+      numSnapshots = 5,
+      format = "png",
+      intervalType = "automatic",
+      thumbnailInterval,
+    } = options;
+
+    // Determine interval based on type
+    let computedThumbnailInterval: number;
+    if (intervalType === "manual") {
+      if (!thumbnailInterval || thumbnailInterval <= 0) {
+        throw new CustomError(
+          "InvalidIntervalError",
+          "Thumbnail interval must be a positive number for manual interval type.",
+        );
+      }
+      computedThumbnailInterval = thumbnailInterval;
+    } else {
+      // Automatic interval calculation will be handled inside the generator
+      computedThumbnailInterval = 0; // Placeholder
+    }
+
+    // Pass the resolved options to the appropriate method
+    const resolvedOptions: ThumbnailOptions = {
+      numSnapshots,
+      format,
+      method,
+      thumbnailInterval: computedThumbnailInterval,
+      intervalType,
+    };
 
     if (method === "ffmpeg") {
-      return this.generateThumbnailsWithFFmpeg(videoFile, thumbnailOptions);
+      return this.generateThumbnailsWithFFmpeg(file, resolvedOptions);
     } else if (method === "native") {
-      return this.generateThumbnailsWithVideo(videoFile, thumbnailOptions);
+      return this.generateThumbnailsWithVideo(file, resolvedOptions);
     } else {
       try {
-        // Intentar método nativo primero
+        // Attempt native method first
         const thumbnails = await this.generateThumbnailsWithVideo(
-          videoFile,
-          thumbnailOptions,
+          file,
+          resolvedOptions,
         );
         if (thumbnails.every((thumb) => thumb.isBlack)) {
           this.logger.warn(
             "All native method thumbnails are mostly black. Falling back to FFmpeg.",
           );
-          return this.generateThumbnailsWithFFmpeg(videoFile, thumbnailOptions);
+          return this.generateThumbnailsWithFFmpeg(file, resolvedOptions);
         }
         return thumbnails;
       } catch (err) {
         this.logger.warn("Native method failed. Falling back to FFmpeg.", {
           error: err,
         });
-        return this.generateThumbnailsWithFFmpeg(videoFile, thumbnailOptions);
+        return this.generateThumbnailsWithFFmpeg(file, resolvedOptions);
       }
     }
   }
@@ -239,17 +278,30 @@ class ThumbnailGenerator {
   private calculateSnapshotTimes(
     duration: number,
     numSnapshots: number,
-    thumbnailInterval = 5,
+    thumbnailInterval: number,
+    intervalType: "manual" | "automatic",
   ): number[] {
     const snapshotTimes: number[] = [];
-    const interval = thumbnailInterval;
-    for (let i = 0; i < numSnapshots; i++) {
-      const time = interval * (i + 1);
-      if (time < duration) {
-        snapshotTimes.push(time);
+
+    if (intervalType === "manual") {
+      for (let i = 0; i < numSnapshots; i++) {
+        const time = thumbnailInterval * (i + 1);
+        if (time < duration) {
+          snapshotTimes.push(time);
+        }
+      }
+    } else {
+      // Automatic interval calculation
+      const interval = duration / (numSnapshots + 1);
+      for (let i = 1; i <= numSnapshots; i++) {
+        const time = interval * i;
+        if (time < duration) {
+          snapshotTimes.push(time);
+        }
       }
     }
-    this.logger.debug("Generated snapshot times.", { snapshotTimes });
+
+    this.logger.info("Generated snapshot times.", { snapshotTimes });
     return snapshotTimes;
   }
 
@@ -258,12 +310,19 @@ class ThumbnailGenerator {
     videoFile: File | Blob,
     options: ThumbnailOptions,
   ): Promise<Thumbnail[]> {
-    const { numSnapshots = 5, format = "png", thumbnailInterval = 5 } = options;
+    const {
+      numSnapshots = 5,
+      format = "png",
+      thumbnailInterval = 5,
+      intervalType = "automatic",
+    } = options;
+
     const duration = await this.getVideoDuration(videoFile);
     const snapshotTimes = this.calculateSnapshotTimes(
       duration,
       numSnapshots,
       thumbnailInterval,
+      intervalType,
     );
     const thumbnails: Thumbnail[] = [];
 
@@ -361,7 +420,13 @@ class ThumbnailGenerator {
     videoFile: File | Blob,
     options: ThumbnailOptions,
   ): Promise<Thumbnail[]> {
-    const { numSnapshots = 5, format = "png", thumbnailInterval = 5 } = options;
+    const {
+      numSnapshots = 5,
+      format = "png",
+      thumbnailInterval = 5,
+      intervalType = "automatic",
+    } = options;
+
     if (format !== "png" && format !== "jpg") {
       throw new CustomError(
         "ThumbnailError",
@@ -383,7 +448,9 @@ class ThumbnailGenerator {
       duration,
       numSnapshots,
       thumbnailInterval,
+      intervalType,
     );
+
     const fileExtension =
       "name" in videoFile && videoFile.name.includes(".")
         ? videoFile.name.substring(videoFile.name.lastIndexOf("."))

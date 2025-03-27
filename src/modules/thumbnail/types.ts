@@ -1,8 +1,11 @@
+export type IntervalType = "manual" | "automatic";
+
 export interface ThumbnailOptions {
   numSnapshots?: number;
   format?: "png" | "jpg";
   method?: "auto" | "native" | "ffmpeg";
   thumbnailInterval?: number;
+  intervalType?: IntervalType;
 }
 
 export interface Thumbnail {
@@ -24,3 +27,10 @@ export interface CapturedFrame {
   width: number;
   height: number;
 }
+
+export type ThumbnailGenerationStatus =
+  | "INITIALIZING"
+  | "GENERATING_THUMBNAILS"
+  | "COMPLETED"
+  | "ERROR_GENERATING_THUMBNAILS"
+  | "THUMBNAILS_GENERATED";
