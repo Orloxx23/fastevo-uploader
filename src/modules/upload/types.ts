@@ -1,3 +1,5 @@
+import { ThumbnailOptions } from "../thumbnail";
+
 export interface SignedUploadObject {
   url: string;
   postParams: {
@@ -21,10 +23,23 @@ export interface UploadProgress {
   timeRemaining: number;
 }
 
+export interface UploadProgressExtended extends UploadProgress {
+  status:
+    | "GENERATING_THUMBNAILS"
+    | "UPLOADING"
+    | "ERROR_UPLOADING"
+    | "ERROR_GENERATING_THUMBNAILS"
+    | "UPLOAD_COMPLETED"
+    | "THUMBNAILS_GENERATED";
+}
+
 export interface UploadRequest {
   file: File;
   signedUploadObject: SignedUploadObject;
-  onProgress?: (progress: UploadProgress) => void;
+  generateThumbnails?: boolean;
+  thumbnailOptions?: ThumbnailOptions;
+  onProgress?: (progress: UploadProgressExtended) => void;
+  onThumbnailsComplete?: (thumbnails: string[]) => void;
 }
 
 export interface UploadResult {

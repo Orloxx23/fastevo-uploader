@@ -1,6 +1,11 @@
-// UploadManager.ts
+// modules/upload/UploadManager.ts
 
-import { UploadRequest, UploadResult, UploadProgress } from "./types";
+import {
+  UploadRequest,
+  UploadResult,
+  UploadProgressExtended,
+  UploadProgress,
+} from "./types";
 import {
   CustomError,
   UploadError,
@@ -9,6 +14,7 @@ import {
 } from "../../core/errors";
 import Logger from "../../core/logger/Logger";
 import ThumbnailGenerator from "../thumbnail/ThumbnailGenerator";
+import { ThumbnailOptions } from "../thumbnail/types";
 
 /**
  * Configuration interface for upload settings.
@@ -80,6 +86,85 @@ class UploadManager {
 
       const { url: presignedUrl, postParams } = request.signedUploadObject;
 
+      let thumbnails: string[] = [];
+
+      // Define progress milestones
+      const THUMBNAIL_PROGRESS_WEIGHT = 0.1; // 30%
+      const UPLOAD_PROGRESS_WEIGHT = 0.9; // 70%
+
+      // Initialize total progress variables
+      let totalProgress = 0;
+
+      // If thumbnail generation is requested and the file is a video, generate thumbnails first
+      if (
+        request.generateThumbnails &&
+        request.file.type.startsWith("video/")
+      ) {
+        if (request.onProgress) {
+          request.onProgress({
+            percentage: 0,
+            uploadedBytes: 0,
+            totalBytes: request.file.size,
+            speedBps: 0,
+            timeRemaining: 0,
+            status: "GENERATING_THUMBNAILS",
+          });
+        }
+
+        this.logger.info("Generating thumbnails.", {
+          fileName: request.file.name,
+          thumbnailOptions: request.thumbnailOptions,
+        });
+
+        try {
+          const generatedThumbnails =
+            await this.thumbnailGenerator.generateThumbnails(
+              request.file,
+              request.thumbnailOptions || {},
+            );
+
+          thumbnails = generatedThumbnails.map((thumb) => thumb.blobUrl);
+          this.logger.info("Thumbnails generated successfully.", {
+            thumbnails,
+          });
+
+          // Update progress to reflect thumbnail generation completion
+          totalProgress += parseInt(
+            (THUMBNAIL_PROGRESS_WEIGHT * 100).toFixed(0),
+          );
+          if (request.onProgress) {
+            request.onProgress({
+              percentage: Math.min(totalProgress, 100),
+              uploadedBytes: 0,
+              totalBytes: request.file.size,
+              speedBps: 0,
+              timeRemaining: 0,
+              status: "THUMBNAILS_GENERATED",
+            });
+          }
+
+          // Invoke the onThumbnailsComplete callback
+          if (request.onThumbnailsComplete) {
+            request.onThumbnailsComplete(thumbnails);
+          }
+        } catch (err: any) {
+          this.logger.error("Error generating thumbnails.", { error: err });
+          if (request.onProgress) {
+            request.onProgress({
+              percentage: totalProgress,
+              uploadedBytes: 0,
+              totalBytes: request.file.size,
+              speedBps: 0,
+              timeRemaining: 0,
+              status: "ERROR_GENERATING_THUMBNAILS",
+            });
+          }
+          throw new UploadError("Failed to generate thumbnails.", {
+            originalError: err,
+          });
+        }
+      }
+
       // Build FormData for the upload
       const formData = this.buildFormData(postParams, request.file);
       this.logger.info("FormData constructed.", { formData });
@@ -100,46 +185,101 @@ class UploadManager {
 
       while (attempts < maxRetries) {
         try {
+          if (request.onProgress) {
+            request.onProgress({
+              percentage: totalProgress,
+              uploadedBytes: 0,
+              totalBytes: request.file.size,
+              speedBps: 0,
+              timeRemaining: 0,
+              status: "UPLOADING",
+            });
+          }
+
           await this.uploadToPresignedUrl(
             presignedUrl,
             formData,
-            request.onProgress,
+            (uploadProgress) => {
+              if (request.onProgress) {
+                // Calculate the upload progress portion
+                const uploadPercentage =
+                  uploadProgress.percentage * UPLOAD_PROGRESS_WEIGHT;
+                const combinedPercentage = parseInt(
+                  Math.min(totalProgress + uploadPercentage, 100).toFixed(0),
+                );
+
+                request.onProgress({
+                  percentage: combinedPercentage,
+                  uploadedBytes: uploadProgress.uploadedBytes,
+                  totalBytes: uploadProgress.totalBytes,
+                  speedBps: uploadProgress.speedBps,
+                  timeRemaining: uploadProgress.timeRemaining,
+                  status: "UPLOADING",
+                });
+              }
+            },
             dynamicTimeout,
           );
+
           this.logger.info("Upload to S3 successful.");
+
+          // Update total progress to 100%
+          totalProgress = 100;
+          if (request.onProgress) {
+            request.onProgress({
+              percentage: totalProgress,
+              uploadedBytes: request.file.size,
+              totalBytes: request.file.size,
+              speedBps: 0,
+              timeRemaining: 0,
+              status: "UPLOAD_COMPLETED",
+            });
+          }
+
           break;
-        } catch (error) {
+        } catch (error: any) {
           attempts++;
           if (attempts < maxRetries) {
             this.logger.warn(`Retrying upload, attempt ${attempts}`, {
               error,
             });
+            if (request.onProgress) {
+              request.onProgress({
+                percentage: totalProgress,
+                uploadedBytes: 0,
+                totalBytes: request.file.size,
+                speedBps: 0,
+                timeRemaining: 0,
+                status: "UPLOADING",
+              });
+            }
             await delay(attempts);
           } else {
-            throw error;
+            this.logger.error("Max retries reached. Upload failed.", { error });
+            if (request.onProgress) {
+              request.onProgress({
+                percentage: totalProgress,
+                uploadedBytes: 0,
+                totalBytes: request.file.size,
+                speedBps: 0,
+                timeRemaining: 0,
+                status: "ERROR_UPLOADING",
+              });
+            }
+            throw new UploadError(
+              "Failed to upload content after multiple attempts.",
+              {
+                originalError: error,
+              },
+            );
           }
         }
       }
 
-      // Generate thumbnails if the upload was successful
-      let thumbnails: string[] = [];
-
-      if (request.file.type.startsWith("video/")) {
-        thumbnails = await this.generateVideoThumbnails(request.file);
-      } else if (request.file.type.startsWith("image/")) {
-        thumbnails.push(URL.createObjectURL(request.file));
-      }
-
       return { thumbnails };
     } catch (error: any) {
-      this.logger.error("Error during content upload.", { error });
-      if (error instanceof CustomError) {
-        throw error;
-      }
-      // Wrap generic errors
-      throw new UploadError("Error uploading content.", {
-        originalError: error,
-      });
+      this.logger.error("Error during upload process.", { error });
+      throw error;
     }
   }
 
@@ -300,33 +440,6 @@ class UploadManager {
    */
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
-  /**
-   * Generates thumbnails for video files.
-   * @param file - Video file for which thumbnails are to be generated.
-   * @returns Promise that resolves with an array of thumbnail URLs.
-   */
-  private async generateVideoThumbnails(file: File): Promise<string[]> {
-    try {
-      this.logger.info("Generating video thumbnails.", {
-        fileName: file.name,
-      });
-      const thumbnails = await this.thumbnailGenerator.generateThumbnails(
-        file,
-        {
-          numSnapshots: 4,
-          format: "png",
-          method: "ffmpeg",
-          thumbnailInterval: 5,
-        },
-      );
-      this.logger.info("Thumbnails generated successfully.", { thumbnails });
-      return thumbnails.map((thumb) => thumb.blobUrl);
-    } catch (error) {
-      this.logger.warn("Error generating video thumbnails.", { error });
-      return [];
-    }
   }
 }
 

@@ -1,8 +1,9 @@
 import Logger from "./core/logger/Logger";
+import { Thumbnail, ThumbnailOptions } from "./modules/thumbnail/types";
 import ThumbnailGenerator from "./modules/thumbnail/ThumbnailGenerator";
 import UploadManager from "./modules/upload/UploadManager";
 import { UploadRequest, UploadResult } from "./modules/upload/types";
-import { Environment } from "@/core/enviorment/enviorment";
+import { Environment } from "./core/enviorment/enviorment";
 
 /**
  * Main class that orchestrates the different modules of Subelo.js.
@@ -13,10 +14,9 @@ class Subelo {
   private thumbnailGenerator: ThumbnailGenerator;
   private logger: Logger;
 
-  constructor(debug: boolean = false) {
+  constructor() {
     this.logger = new Logger({
-      level: debug ? "debug" : "info",
-      debug: debug,
+      level: "info",
     });
     this.thumbnailGenerator = new ThumbnailGenerator(this.logger);
     this.uploadManager = new UploadManager(
@@ -56,6 +56,37 @@ class Subelo {
    */
   async uploadContent(request: UploadRequest): Promise<UploadResult> {
     return this.uploadManager.uploadContent(request);
+  }
+
+  /**
+   * Generates thumbnails for a given video or image file.
+   * @param file - The video or image file for which to generate thumbnails.
+   * @param options - Optional settings for thumbnail generation.
+   * @returns Promise that resolves with an array of generated thumbnails.
+   */
+  async generateThumbnails(
+    file: File | Blob,
+    options?: ThumbnailOptions,
+  ): Promise<string[]> {
+    try {
+      this.logger.info("Starting thumbnail generation.", {
+        fileName: (file as File).name,
+      });
+
+      const thumbnails = await this.thumbnailGenerator.generateThumbnails(
+        file,
+        options || {},
+      );
+
+      this.logger.info("Thumbnail generation completed.", {
+        numberOfThumbnails: thumbnails.length,
+      });
+
+      return thumbnails.map((thumbnail) => thumbnail.blobUrl);
+    } catch (error: any) {
+      this.logger.error("Error during thumbnail generation.", { error });
+      return [];
+    }
   }
 }
 
