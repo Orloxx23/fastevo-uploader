@@ -94,7 +94,7 @@ class ThumbnailGenerator {
         );
         if (thumbnails.every((thumb) => thumb.isBlack)) {
           this.logger.warn(
-            "All native method thumbnails are mostly black. Falling back to FFmpeg.",
+            "All FFmpeg method thumbnails are mostly black. Falling back to native method.",
           );
           return this.generateThumbnailsWithFFmpeg(file, resolvedOptions);
         }
@@ -124,6 +124,14 @@ class ThumbnailGenerator {
           this.logger.error("FFmpeg failed to load.");
           throw new CustomError("FFmpegError", "FFmpeg failed to load.");
         }
+
+        this.ffmpegInstance.on("log", ({ type, message }) => {
+          this.logger.info(`FFmpeg [${type}]: ${message}`);
+        });
+
+        this.ffmpegInstance.on("progress", ({ progress, time }) => {
+          this.logger.info(`FFmpeg progress: ${progress} (${time})`);
+        });
 
         return this.ffmpegInstance;
       } catch (err: any) {
@@ -300,7 +308,6 @@ class ThumbnailGenerator {
         }
       }
     }
-
     this.logger.info("Generated snapshot times.", { snapshotTimes });
     return snapshotTimes;
   }
@@ -458,11 +465,16 @@ class ThumbnailGenerator {
     const inputFileName = `input_video${fileExtension}`;
 
     try {
-      await ffmpeg.writeFile(inputFileName, await fetchFile(videoFile));
+      const fileData = await fetchFile(videoFile);
+      this.logger.info(`Video file loaded for FFmpeg processing.`, {
+        fileData: fileData,
+      });
+      await ffmpeg.writeFile(inputFileName, fileData);
+      this.logger.info(`Video file written to FFmpeg as ${inputFileName}.`);
     } catch (err: any) {
       throw new CustomError(
         "FFmpegError",
-        `Failed to write video file to FFmpeg: ${err.message}`,
+        `Failed to write video file to FFmpeg: ${err.message || err}`,
       );
     }
 
