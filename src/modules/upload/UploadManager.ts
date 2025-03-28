@@ -89,81 +89,11 @@ class UploadManager {
       let thumbnails: string[] = [];
 
       // Define progress milestones
-      const THUMBNAIL_PROGRESS_WEIGHT = 0.1; // 30%
-      const UPLOAD_PROGRESS_WEIGHT = 0.9; // 70%
+      const THUMBNAIL_PROGRESS_WEIGHT = 0.01; // 1%
+      const UPLOAD_PROGRESS_WEIGHT = 1; // 100%
 
       // Initialize total progress variables
       let totalProgress = 0;
-
-      // If thumbnail generation is requested and the file is a video, generate thumbnails first
-      if (
-        request.generateThumbnails &&
-        request.file.type.startsWith("video/")
-      ) {
-        if (request.onProgress) {
-          request.onProgress({
-            percentage: 0,
-            uploadedBytes: 0,
-            totalBytes: request.file.size,
-            speedBps: 0,
-            timeRemaining: 0,
-            status: "GENERATING_THUMBNAILS",
-          });
-        }
-
-        this.logger.info("Generating thumbnails.", {
-          fileName: request.file.name,
-          thumbnailOptions: request.thumbnailOptions,
-        });
-
-        try {
-          const generatedThumbnails =
-            await this.thumbnailGenerator.generateThumbnails(
-              request.file,
-              request.thumbnailOptions || {},
-            );
-
-          thumbnails = generatedThumbnails.map((thumb) => thumb.blobUrl);
-          this.logger.info("Thumbnails generated successfully.", {
-            thumbnails,
-          });
-
-          // Update progress to reflect thumbnail generation completion
-          totalProgress += parseInt(
-            (THUMBNAIL_PROGRESS_WEIGHT * 100).toFixed(0),
-          );
-          if (request.onProgress) {
-            request.onProgress({
-              percentage: Math.min(totalProgress, 100),
-              uploadedBytes: 0,
-              totalBytes: request.file.size,
-              speedBps: 0,
-              timeRemaining: 0,
-              status: "THUMBNAILS_GENERATED",
-            });
-          }
-
-          // Invoke the onThumbnailsComplete callback
-          if (request.onThumbnailsComplete) {
-            request.onThumbnailsComplete(thumbnails);
-          }
-        } catch (err: any) {
-          this.logger.error("Error generating thumbnails.", { error: err });
-          if (request.onProgress) {
-            request.onProgress({
-              percentage: totalProgress,
-              uploadedBytes: 0,
-              totalBytes: request.file.size,
-              speedBps: 0,
-              timeRemaining: 0,
-              status: "ERROR_GENERATING_THUMBNAILS",
-            });
-          }
-          throw new UploadError("Failed to generate thumbnails.", {
-            originalError: err,
-          });
-        }
-      }
 
       // Build FormData for the upload
       const formData = this.buildFormData(postParams, request.file);
@@ -223,11 +153,11 @@ class UploadManager {
 
           this.logger.info("Upload to S3 successful.");
 
-          // Update total progress to 100%
-          totalProgress = 100;
+          // Update total progress to reflect upload completion
+          totalProgress += parseInt((UPLOAD_PROGRESS_WEIGHT * 100).toFixed(0));
           if (request.onProgress) {
             request.onProgress({
-              percentage: totalProgress,
+              percentage: Math.min(totalProgress, 100),
               uploadedBytes: request.file.size,
               totalBytes: request.file.size,
               speedBps: 0,
@@ -273,6 +203,72 @@ class UploadManager {
               },
             );
           }
+        }
+      }
+
+      // After a successful upload, generate thumbnails if necessary
+      if (
+        request.generateThumbnails &&
+        request.file.type.startsWith("video/")
+      ) {
+        if (request.onProgress) {
+          request.onProgress({
+            percentage: totalProgress, // Maintain the current progress
+            uploadedBytes: request.file.size,
+            totalBytes: request.file.size,
+            speedBps: 0,
+            timeRemaining: 0,
+            status: "GENERATING_THUMBNAILS",
+          });
+        }
+
+        this.logger.info("Generating thumbnails.", {
+          fileName: request.file.name,
+          thumbnailOptions: request.thumbnailOptions,
+        });
+
+        try {
+          const generatedThumbnails =
+            await this.thumbnailGenerator.generateThumbnails(
+              request.file,
+              request.thumbnailOptions || {},
+            );
+
+          thumbnails = generatedThumbnails.map((thumb) => thumb.blobUrl);
+          this.logger.info("Thumbnails generated successfully.", {
+            thumbnails,
+          });
+
+          // Update the full progress to 100%
+          totalProgress = 100;
+          if (request.onProgress) {
+            request.onProgress({
+              percentage: totalProgress,
+              uploadedBytes: request.file.size,
+              totalBytes: request.file.size,
+              speedBps: 0,
+              timeRemaining: 0,
+              status: "THUMBNAILS_GENERATED",
+            });
+          }
+
+          // Invoke the completed thumbnails callback
+          if (request.onThumbnailsComplete) {
+            request.onThumbnailsComplete(thumbnails);
+          }
+        } catch (err: any) {
+          this.logger.error("Error generating thumbnails.", { error: err });
+          if (request.onProgress) {
+            request.onProgress({
+              percentage: totalProgress,
+              uploadedBytes: request.file.size,
+              totalBytes: request.file.size,
+              speedBps: 0,
+              timeRemaining: 0,
+              status: "ERROR_GENERATING_THUMBNAILS",
+            });
+          }
+          return { thumbnails: [] };
         }
       }
 
