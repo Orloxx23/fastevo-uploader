@@ -3,7 +3,7 @@ import { Thumbnail, ThumbnailOptions } from "./modules/thumbnail/types";
 import ThumbnailGenerator from "./modules/thumbnail/ThumbnailGenerator";
 import UploadManager from "./modules/upload/UploadManager";
 import { UploadRequest, UploadResult } from "./modules/upload/types";
-import { Environment } from "./core/enviorment/enviorment";
+import { Environment } from "./core/environment/environment";
 
 /**
  * Main class that orchestrates the different modules of Subelo.js.
