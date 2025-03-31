@@ -1,31 +1,12 @@
-// modules/upload/UploadManager.ts
-
-import {
-  UploadRequest,
-  UploadResult,
-  UploadProgressExtended,
-  UploadProgress,
-} from "./types";
-import {
-  CustomError,
-  UploadError,
-  NetworkError,
-  TimeoutError,
-} from "../../core/errors";
+import { NetworkError, TimeoutError, UploadError } from "../../core/errors";
 import Logger from "../../core/logger/Logger";
 import ThumbnailGenerator from "../thumbnail/ThumbnailGenerator";
-import { ThumbnailOptions } from "../thumbnail/types";
-
-/**
- * Configuration interface for upload settings.
- */
-interface UploadConfig {
-  minSpeedBps: number; // Minimum upload speed in bytes per second
-  bufferPercentage: number; // Additional buffer time as a percentage
-  maxTimeout: number; // Maximum allowed timeout in milliseconds
-  maxRetries: number; // Maximum number of retry attempts
-  retryDelay: (attempt: number) => number; // Function to calculate delay between retries
-}
+import {
+  UploadConfig,
+  UploadProgress,
+  UploadRequest,
+  UploadResult,
+} from "./types";
 
 class UploadManager {
   private logger: Logger;

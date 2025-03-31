@@ -45,3 +45,24 @@ export interface UploadRequest {
 export interface UploadResult {
   thumbnails: string[];
 }
+
+export interface UploadOptions {
+  title?: string;
+  folderPath: string;
+  priority: number;
+  watermarkProfile: string | null;
+  tags?: string[];
+}
+
+export interface UploadResponse {
+  contentId: string;
+  signedUploadObject: SignedUploadObject;
+}
+
+export interface UploadConfig {
+  minSpeedBps: number;
+  bufferPercentage: number;
+  maxTimeout: number;
+  maxRetries: number;
+  retryDelay: (attempt: number) => number;
+}
