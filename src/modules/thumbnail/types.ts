@@ -29,8 +29,9 @@ export interface CapturedFrame {
 }
 
 export type ThumbnailGenerationStatus =
-  | "INITIALIZING"
-  | "GENERATING_THUMBNAILS"
-  | "COMPLETED"
-  | "ERROR_GENERATING_THUMBNAILS"
-  | "THUMBNAILS_GENERATED";
+  | "initializing"
+  | "generatingThumbnails"
+  | "completed"
+  | "errorGeneratingThumbnails"
+  | "thumbnailsGenerated";
+

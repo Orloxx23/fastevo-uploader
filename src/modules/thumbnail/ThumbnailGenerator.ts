@@ -125,13 +125,13 @@ class ThumbnailGenerator {
           throw new CustomError("FFmpegError", "FFmpeg failed to load.");
         }
 
-        this.ffmpegInstance.on("log", ({ type, message }) => {
+        /*this.ffmpegInstance.on("log", ({ type, message }) => {
           this.logger.info(`FFmpeg [${type}]: ${message}`);
-        });
+        });*/
 
-        this.ffmpegInstance.on("progress", ({ progress, time }) => {
+        /*this.ffmpegInstance.on("progress", ({ progress, time }) => {
           this.logger.info(`FFmpeg progress: ${progress} (${time})`);
-        });
+        });*/
 
         return this.ffmpegInstance;
       } catch (err: any) {

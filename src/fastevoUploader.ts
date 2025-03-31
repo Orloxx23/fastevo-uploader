@@ -3,18 +3,18 @@ import { Thumbnail, ThumbnailOptions } from "./modules/thumbnail/types";
 import ThumbnailGenerator from "./modules/thumbnail/ThumbnailGenerator";
 import UploadManager from "./modules/upload/UploadManager";
 import { UploadRequest, UploadResult } from "./modules/upload/types";
-import { Environment } from "./core/enviorment/enviorment";
+import { Environment } from "./core/environment/environment";
 
 /**
- * Main class that orchestrates the different modules of Subelo.js.
+ * Main class that orchestrates the different modules of FastevoUploader.
  * Implemented as a Singleton for ease of use.
  */
-class Subelo {
+class FastevoUploader {
   private uploadManager: UploadManager;
   private thumbnailGenerator: ThumbnailGenerator;
   private logger: Logger;
 
-  constructor() {
+  constructor(options?: { preload?: boolean }) {
     this.logger = new Logger({
       level: "info",
     });
@@ -32,21 +32,25 @@ class Subelo {
       return;
     }
 
-    // Preload FFmpeg if necessary
-    this.thumbnailGenerator
-      .preloadFFmpeg()
-      .then((preloaded) => {
-        if (preloaded) {
-          this.logger.info("FFmpeg preloaded successfully.");
-        } else {
-          this.logger.warn("FFmpeg preloading failed.");
-        }
-      })
-      .catch((err) => {
-        this.logger.error("Error during FFmpeg preloading.", {
-          error: err,
-        });
-      });
+    if (options?.preload) {
+      this.preloadFFmpeg();
+    }
+  }
+
+  /**
+   * Preloads FFmpeg to improve performance when generating thumbnails.
+   */
+  private async preloadFFmpeg() {
+    try {
+      const preloaded = await this.thumbnailGenerator.preloadFFmpeg();
+      if (preloaded) {
+        this.logger.info("FFmpeg preloaded successfully.");
+      } else {
+        this.logger.warn("FFmpeg preloading failed.");
+      }
+    } catch (err) {
+      this.logger.error("Error during FFmpeg preloading.", { error: err });
+    }
   }
 
   /**
@@ -90,8 +94,6 @@ class Subelo {
   }
 }
 
-// Create a single instance of Subelo to be exported by default
-const subeloInstance = new Subelo();
-
-// Export the instance as the default export
-export default subeloInstance;
+const fastevoInstance = new FastevoUploader();
+export default fastevoInstance;
+export { FastevoUploader };

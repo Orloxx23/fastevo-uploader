@@ -25,12 +25,12 @@ export interface UploadProgress {
 
 export interface UploadProgressExtended extends UploadProgress {
   status:
-    | "GENERATING_THUMBNAILS"
-    | "UPLOADING"
-    | "ERROR_UPLOADING"
-    | "ERROR_GENERATING_THUMBNAILS"
-    | "UPLOAD_COMPLETED"
-    | "THUMBNAILS_GENERATED";
+    | "generatingThumbnails"
+    | "uploading"
+    | "errorUploading"
+    | "errorGeneratingThumbnails"
+    | "uploadCompleted"
+    | "thumbnailsGenerated";
 }
 
 export interface UploadRequest {
@@ -44,4 +44,12 @@ export interface UploadRequest {
 
 export interface UploadResult {
   thumbnails: string[];
+}
+
+export interface UploadConfig {
+  minSpeedBps: number;
+  bufferPercentage: number;
+  maxTimeout: number;
+  maxRetries: number;
+  retryDelay: (attempt: number) => number;
 }
