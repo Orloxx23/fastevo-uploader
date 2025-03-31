@@ -1,10 +1,8 @@
-// export { default as ThumbnailGenerator } from "./modules/thumbnail/ThumbnailGenerator";
-// export { default as UploadManager } from "./modules/upload/UploadManager";
 export * from "./modules/upload/types";
 export * from "./modules/thumbnail/types";
-// export * from "@/utils/helpers";
 
-import subelo from "./subelo";
-export { subelo };
+import { FastevoUploader } from "./fastevoUploader";
+const fastevoUploader = new FastevoUploader();
 
-export default subelo;
+export { fastevoUploader, FastevoUploader };
+export default fastevoUploader;
