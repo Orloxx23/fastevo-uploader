@@ -103,7 +103,7 @@ class UploadManager {
               totalBytes: request.file.size,
               speedBps: 0,
               timeRemaining: 0,
-              status: "UPLOADING",
+              status: "uploading",
             });
           }
 
@@ -125,7 +125,7 @@ class UploadManager {
                   totalBytes: uploadProgress.totalBytes,
                   speedBps: uploadProgress.speedBps,
                   timeRemaining: uploadProgress.timeRemaining,
-                  status: "UPLOADING",
+                  status: "uploading",
                 });
               }
             },
@@ -143,7 +143,7 @@ class UploadManager {
               totalBytes: request.file.size,
               speedBps: 0,
               timeRemaining: 0,
-              status: "UPLOAD_COMPLETED",
+              status: "uploadCompleted",
             });
           }
 
@@ -161,7 +161,7 @@ class UploadManager {
                 totalBytes: request.file.size,
                 speedBps: 0,
                 timeRemaining: 0,
-                status: "UPLOADING",
+                status: "uploading",
               });
             }
             await delay(attempts);
@@ -174,7 +174,7 @@ class UploadManager {
                 totalBytes: request.file.size,
                 speedBps: 0,
                 timeRemaining: 0,
-                status: "ERROR_UPLOADING",
+                status: "errorUploading",
               });
             }
             throw new UploadError(
@@ -199,7 +199,7 @@ class UploadManager {
             totalBytes: request.file.size,
             speedBps: 0,
             timeRemaining: 0,
-            status: "GENERATING_THUMBNAILS",
+            status: "generatingThumbnails",
           });
         }
 
@@ -229,7 +229,7 @@ class UploadManager {
               totalBytes: request.file.size,
               speedBps: 0,
               timeRemaining: 0,
-              status: "THUMBNAILS_GENERATED",
+              status: "thumbnailsGenerated",
             });
           }
 
@@ -246,7 +246,7 @@ class UploadManager {
               totalBytes: request.file.size,
               speedBps: 0,
               timeRemaining: 0,
-              status: "ERROR_GENERATING_THUMBNAILS",
+              status: "errorGeneratingThumbnails",
             });
           }
           return { thumbnails: [] };
