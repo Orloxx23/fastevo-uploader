@@ -1,19 +1,19 @@
-# 📦 Subelo.js
+# 📦 FastevoUploader.js
 
-Subelo is a TypeScript library that allows you to upload files to a platform. It provides a simple and easy-to-use API for uploading files with progress tracking.
+FastevoUploader is a TypeScript library that allows you to upload files to a platform. It provides a simple and easy-to-use API for uploading files with progress tracking.
 
 ## 🚀 Installation
 
 ```bash
-npm install subelojs
+npm install fastevoUploader
 ```
 
 ## 😲 Simple Usage
 
-To use subelojs for uploading files, first import the uploader and initialize it with your configuration:
+To use fastevoUploader for uploading files, first import the uploader and initialize it with your configuration:
 
 ```javascript
-import subelo from "subelojs";
+import fastevoUploader from "fastevoUploader";
 
 const uploadRequest = {
   file: File, // The file object to upload.
@@ -47,6 +47,6 @@ uploader
 
 ## ❓ FAQ / Frequently Asked Questions
 
-**Q: Does subelojs support Node.js backends?**
+**Q: Does fastevoUploader support Node.js backends?**
 
-A: No, subelojs is designed to work only in browser environments as it relies on browser-specific APIs for its functionality.
+A: No, fastevoUploader is designed to work only in browser environments as it relies on browser-specific APIs for its functionality.
