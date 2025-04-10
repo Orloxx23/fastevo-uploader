@@ -1,5 +1,5 @@
 {
-  "name": "fastevoUploader",
+  "name": "fastevo-uploader",
   "version": "1.0.0",
   "license": "ISC",
   "description": "",
@@ -43,6 +43,8 @@
   },
   "dependencies": {
     "@ffmpeg/ffmpeg": "^0.12.15",
-    "@ffmpeg/util": "^0.12.2"
+    "@ffmpeg/util": "^0.12.2",
+    "events": "^3.3.0",
+    "fastevo-mp2-uploader-lib": "^1.0.3"
   }
 }

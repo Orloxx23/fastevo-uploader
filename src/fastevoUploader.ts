@@ -2,19 +2,26 @@ import Logger from "./core/logger/Logger";
 import { Thumbnail, ThumbnailOptions } from "./modules/thumbnail/types";
 import ThumbnailGenerator from "./modules/thumbnail/ThumbnailGenerator";
 import UploadManager from "./modules/upload/UploadManager";
-import { UploadRequest, UploadResult } from "./modules/upload/types";
+import {
+  UploadEvent,
+  UploadProgress,
+  UploadRequest,
+  UploadResult,
+} from "./modules/upload/types";
 import { Environment } from "./core/environment/environment";
+import EventEmitter from "events";
 
 /**
  * Main class that orchestrates the different modules of FastevoUploader.
  * Implemented as a Singleton for ease of use.
  */
-class FastevoUploader {
+class FastevoUploader extends EventEmitter {
   private uploadManager: UploadManager;
   private thumbnailGenerator: ThumbnailGenerator;
   private logger: Logger;
 
   constructor(options?: { preload?: boolean }) {
+    super();
     this.logger = new Logger({
       level: "info",
     });
@@ -35,6 +42,62 @@ class FastevoUploader {
     if (options?.preload) {
       this.preloadFFmpeg();
     }
+
+    // Forward all events from uploadManager
+    this.uploadManager.on(
+      "uploadProgress",
+      (file: File, progress: UploadProgress) => {
+        this.emit("uploadProgress", file, progress);
+      },
+    );
+
+    this.uploadManager.on("uploadComplete", (file: File, result: any) => {
+      this.emit("uploadComplete", file, result);
+    });
+
+    this.uploadManager.on("uploadError", (file: File, error: any) => {
+      this.logger.error("Upload error:", { error });
+      this.emit("uploadError", file, error);
+    });
+
+    this.uploadManager.on("uploadPaused", (file: File) => {
+      this.emit("uploadPaused", file);
+    });
+
+    this.uploadManager.on("uploadResumed", (file: File) => {
+      this.emit("uploadResumed", file);
+    });
+
+    this.uploadManager.on(
+      "thumbnailsGenerated",
+      (file: File, thumbnails: any) => {
+        this.emit("thumbnailsGenerated", file, thumbnails);
+      },
+    );
+  }
+
+  /**
+   * Adds an event listener for a specific upload event.
+   * @param eventName - The name of the event to listen for.
+   */
+  public on<K extends UploadEvent>(
+    eventName: K,
+    listener: (...args: any[]) => void,
+  ): this {
+    super.on(eventName, listener);
+    return this;
+  }
+
+  /**
+   * Removes an event listener for a specific upload event.
+   * @param eventName - The name of the event to stop listening for.
+   */
+  public off<K extends UploadEvent>(
+    eventName: K,
+    listener: (...args: any[]) => void,
+  ): this {
+    super.off(eventName, listener);
+    return this;
   }
 
   /**
@@ -91,6 +154,27 @@ class FastevoUploader {
       this.logger.error("Error during thumbnail generation.", { error });
       return [];
     }
+  }
+
+  /**
+   * Pauses an ongoing upload.
+   */
+  pause() {
+    this.uploadManager.pauseUpload();
+  }
+
+  /**
+   * Resumes a paused upload.
+   */
+  resume() {
+    this.uploadManager.resumeUpload();
+  }
+
+  /**
+   * Cancels an ongoing upload.
+   */
+  abort() {
+    this.uploadManager.abortUpload();
   }
 }
 

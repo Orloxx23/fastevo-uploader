@@ -1,55 +1,56 @@
+import { FastevoUploader } from "@/fastevoUploader";
 import { ThumbnailOptions } from "../thumbnail";
 
-export interface SignedUploadObject {
-  url: string;
-  postParams: {
-    bucket: string;
-    "X-Amz-Algorithm": string;
-    "X-Amz-Credential": string;
-    "X-Amz-Date": string;
-    key: string;
-    Policy: string;
-    "X-Amz-Signature": string;
-    "X-Amz-Storage-Class": string;
-    [key: string]: string;
-  };
-}
-
-export interface UploadProgress {
+export type UploadProgress = {
   percentage: number;
   uploadedBytes: number;
   totalBytes: number;
   speedBps: number;
   timeRemaining: number;
-}
+};
 
-export interface UploadProgressExtended extends UploadProgress {
-  status:
-    | "generatingThumbnails"
-    | "uploading"
-    | "errorUploading"
-    | "errorGeneratingThumbnails"
-    | "uploadCompleted"
-    | "thumbnailsGenerated";
-}
-
-export interface UploadRequest {
+export type UploadRequest = {
+  multipartUploadToken: string;
   file: File;
-  signedUploadObject: SignedUploadObject;
+  apiUrlBase?: string;
   generateThumbnails?: boolean;
   thumbnailOptions?: ThumbnailOptions;
-  onProgress?: (progress: UploadProgressExtended) => void;
-  onThumbnailsComplete?: (thumbnails: string[]) => void;
-}
+};
 
-export interface UploadResult {
+export type UploadResult = {
   thumbnails: string[];
-}
+};
 
-export interface UploadConfig {
+export type UploadConfig = {
   minSpeedBps: number;
   bufferPercentage: number;
   maxTimeout: number;
   maxRetries: number;
   retryDelay: (attempt: number) => number;
+};
+
+export type UploadEvent =
+  | "uploadProgress"
+  | "uploadComplete"
+  | "uploadError"
+  | "uploadPaused"
+  | "uploadResumed"
+  | "thumbnailsGenerationStarted"
+  | "thumbnailsGenerated";
+
+export type UploadListener = (...args: any[]) => void;
+
+export type UploaderConfig = {
+  uploadToken: string;
+  options?: {
+    apiUrlBase?: string;
+  };
+};
+
+export type ActiveUpload = {
+  uploader: FastevoUploader;
+  lastUpdateTime: number;
+  status: "idle" | "uploading" | "paused" | "resumed";
+  lastPauseTime: number;
+  totalPausedTime: number;
 }
