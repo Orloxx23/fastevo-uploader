@@ -1,8 +1,8 @@
 {
-  "name": "fastevoUploader",
+  "name": "fastevo-uploader",
   "version": "1.0.0",
   "license": "ISC",
-  "description": "",
+  "description": "A robust library for uploading content and generating thumbnails",
   "main": "dist/index.cjs.js",
   "module": "dist/index.esm.js",
   "types": "dist/index.d.ts",
@@ -17,7 +17,13 @@
   "files": [
     "dist"
   ],
-  "keywords": [],
+  "keywords": [
+    "upload",
+    "thumbnail",
+    "typescript",
+    "ffmpeg",
+    "browser"
+  ],
   "author": "",
   "devDependencies": {
     "@rollup/plugin-alias": "^5.1.1",
@@ -43,6 +49,8 @@
   },
   "dependencies": {
     "@ffmpeg/ffmpeg": "^0.12.15",
-    "@ffmpeg/util": "^0.12.2"
+    "@ffmpeg/util": "^0.12.2",
+    "events": "^3.3.0",
+    "fastevo-mp2-uploader-lib": "^1.0.3"
   }
 }

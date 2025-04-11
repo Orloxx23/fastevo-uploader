@@ -403,6 +403,8 @@ class ThumbnailGenerator {
           isBlack,
           method: "native",
         });
+
+        URL.revokeObjectURL(blobUrl);
       } catch (err) {
         this.logger.warn(`Failed to capture frame at ${time} seconds:`, {
           error: err,
@@ -516,6 +518,7 @@ class ThumbnailGenerator {
           method: "ffmpeg",
         });
 
+        URL.revokeObjectURL(blobUrl);
         await ffmpeg.deleteFile(outputFileName);
       } catch (err) {
         this.logger.error(
