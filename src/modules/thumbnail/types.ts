@@ -1,5 +1,5 @@
 /**
- * Thumbnail Generation Types
+ * Defines the types of interval calculation methods.
  */
 export type IntervalType = "manual" | "automatic";
 
@@ -8,33 +8,37 @@ export type IntervalType = "manual" | "automatic";
  */
 export interface ThumbnailOptions {
   /**
-   * The interval between thumbnails in seconds.
+   * The number of thumbnails to generate.
+   * @default 5
    */
   numSnapshots?: number;
 
   /**
    * The format of the thumbnail images.
+   * @default "png"
    */
   format?: "png" | "jpg";
 
   /**
-   * The width of the thumbnail images.
+   * The method to use for thumbnail generation.
+   * @default "auto"
    */
   method?: "auto" | "native" | "ffmpeg";
 
   /**
-   * The height of the thumbnail images.
+   * The interval between thumbnails in seconds (used if intervalType is "manual").
    */
   thumbnailInterval?: number;
 
   /**
-   * The number of thumbnails to generate.
+   * The type of interval calculation.
+   * @default "automatic"
    */
   intervalType?: IntervalType;
 }
 
 /**
- * Interface for thumbnail generation progress.
+ * Interface representing a generated thumbnail.
  */
 export interface Thumbnail {
   /**
@@ -48,7 +52,7 @@ export interface Thumbnail {
   blob: Blob;
 
   /**
-   * The canvas element used to generate the thumbnail.
+   * The ArrayBuffer of the generated thumbnail.
    */
   arrayBuffer: ArrayBuffer;
 
@@ -58,12 +62,12 @@ export interface Thumbnail {
   timestamp: number;
 
   /**
-   * The width of the thumbnail image.
+   * The duration of the video in seconds.
    */
   videoDuration: number;
 
   /**
-   * The height of the thumbnail image.
+   * The width of the thumbnail image.
    */
   width?: number;
 
@@ -73,48 +77,48 @@ export interface Thumbnail {
   height?: number;
 
   /**
-   * The format of the thumbnail image.
+   * Indicates if the thumbnail is mostly black.
    */
   isBlack?: boolean;
 
   /**
-   * The format of the thumbnail image.
+   * The method used to generate the thumbnail.
    */
   method: "native" | "ffmpeg";
 }
 
 /**
- * Interface for thumbnail generation progress.
+ * Interface representing a captured frame during thumbnail generation.
  */
 export interface CapturedFrame {
   /**
-   * The URL of the generated thumbnail.
+   * The Blob object of the captured frame.
    */
   blob: Blob;
 
   /**
-   * The Blob object of the generated thumbnail.
+   * The canvas element used to capture the frame.
    */
   canvas: HTMLCanvasElement;
 
   /**
-   * The Blob object of the generated thumbnail.
+   * The timestamp of the frame in seconds.
    */
   timestamp: number;
 
   /**
-   * The Blob object of the generated thumbnail.
+   * The width of the frame.
    */
   width: number;
 
   /**
-   * The Blob object of the generated thumbnail.
+   * The height of the frame.
    */
   height: number;
 }
 
 /**
- * Interface for thumbnail generation progress.
+ * Enumeration of thumbnail generation statuses.
  */
 export type ThumbnailGenerationStatus =
   | "initializing"
